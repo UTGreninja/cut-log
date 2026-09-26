@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cut Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0F1512;--panel:#161F1A;--panel-2:#1C271F;
+  --line:rgba(232,236,233,.09);--line-strong:rgba(232,236,233,.18);
+  --text:#E8ECE9;--muted:#7C8A80;--accent:#8FA998;--accent-dim:#5F7469;
+  --down:#8FA998;--up:#B97D6B;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box;
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'IBM Plex Mono',monospace;-webkit-font-smoothing:antialiased;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:28px 28px}
+h1,h2,.serif{font-family:'Source Serif 4',serif}
+.wrap{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+header{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line-strong);padding-bottom:18px;margin-bottom:28px;flex-wrap:wrap;gap:10px}
+header h1{font-size:26px;font-weight:600;margin:0}
+header .date{color:var(--muted);font-size:13px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line-strong);border:1px solid var(--line-strong);margin-bottom:22px}
+.stat{background:var(--panel);padding:16px 14px}
+.stat .label{color:var(--muted);font-size:11px;margin-bottom:8px}
+.stat .value{font-family:'Source Serif 4',serif;font-size:22px;font-weight:600}
+.stat .value.small{font-size:16px}
+@media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line-strong);padding:20px;margin-bottom:20px}
+.panel h2{font-size:16px;font-weight:600;margin:0 0 4px}
+.panel .sub{color:var(--muted);font-size:12px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px}
+@media(max-width:640px){.grid{grid-template-columns:1fr 1fr}}
+.field label{display:block;color:var(--muted);font-size:11px;margin-bottom:6px}
+.field input,.field select{width:100%;background:var(--panel-2);border:1px solid var(--line-strong);color:var(--text);padding:9px 10px;font-family:'IBM Plex Mono',monospace;font-size:14px;border-radius:2px}
+.field input:focus,.field select:focus{outline:2px solid var(--accent);outline-offset:1px}
+button{background:var(--accent);color:#0F1512;border:none;padding:10px 16px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;cursor:pointer;border-radius:2px;transition:background .15s}
+button:hover{background:#A3BAAB}
+button.ghost{background:transparent;border:1px solid var(--line-strong);color:var(--muted)}
+button.ghost:hover{border-color:var(--accent);color:var(--accent);background:transparent}
+button:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+.row-actions{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
+.activity-row{display:grid;grid-template-columns:2fr 1fr auto auto;gap:8px;margin-bottom:8px;align-items:center}
+@media(max-width:640px){.activity-row{grid-template-columns:1fr 1fr auto}}
+.activity-row input{background:var(--panel-2);border:1px solid var(--line-strong);color:var(--text);padding:8px 9px;font-family:'IBM Plex Mono',monospace;font-size:13px;border-radius:2px;width:100%}
+.activity-kcal{color:var(--muted);font-size:12px;white-space:nowrap}
+.activity-row .del{background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;padding:4px 6px}
+.activity-row .del:hover{color:var(--up)}
+#chart-empty{color:var(--muted);font-size:13px;padding:30px 0;text-align:center}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;color:var(--muted);font-weight:500;font-size:11px;padding:8px 8px;border-bottom:1px solid var(--line-strong)}
+td{padding:9px 8px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:none}
+td.delta.down{color:var(--down)}
+td.delta.up{color:var(--up)}
+td .del{background:none;border:none;color:var(--muted);font-size:12px;padding:2px 6px;cursor:pointer}
+td .del:hover{color:var(--up)}
+.log-empty{color:var(--muted);font-size:13px;text-align:center;padding:20px 0}
+.overflow{overflow-x:auto}
+.advice{background:var(--panel-2);border:1px solid var(--line);padding:14px;font-size:13px;line-height:1.6;margin-top:14px}
+.advice b{color:var(--accent)}
+footer{text-align:center;color:var(--muted);font-size:11px;margin-top:30px}
+.note{color:var(--muted);font-size:11px;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><h1>Cut Log</h1><span class="date" id="today"></span></header>
+
+<div class="stats">
+  <div class="stat"><div class="label">CURRENT WEIGHT</div><div class="value" id="s-weight">—</div></div>
+  <div class="stat"><div class="label">GOAL PROGRESS</div><div class="value" id="s-progress">—</div></div>
+  <div class="stat"><div class="label">AVG DAILY DEFICIT</div><div class="value small" id="s-deficit">—</div></div>
+  <div class="stat"><div class="label">AVG PROTEIN</div><div class="value small" id="s-protein">—</div></div>
+</div>
+
+<div class="panel">
+  <h2>Profile</h2>
+  <div class="sub">Used to calculate your BMR and daily calorie target. Edit anytime.</div>
+  <div class="grid">
+    <div class="field"><label>Sex</label><select id="p-sex"><option value="m">Male</option><option value="f">Female</option></select></div>
+    <div class="field"><label>Age</label><input type="number" id="p-age" min="10" max="90"></div>
+    <div class="field"><label>Height (cm)</label><input type="number" id="p-height" min="100" max="250"></div>
+    <div class="field"><label>Goal weight (kg)</label><input type="number" id="p-goal" step="0.1" min="0"></div>
+  </div>
+  <div class="row-actions"><button id="save-profile">Save profile</button></div>
+  <div class="note">Your current weight is taken from your most recent daily log entry below.</div>
+</div>
+
+<div class="panel">
+  <h2>Today's log</h2>
+  <div class="sub">Enter calories, protein, and today's weight. Add activities and calories burned are estimated automatically.</div>
+  <div class="grid">
+    <div class="field"><label>Date</label><input type="date" id="f-date"></div>
+    <div class="field"><label>Weight (kg)</label><input type="number" id="f-weight" step="0.1" min="0"></div>
+    <div class="field"><label>Calories eaten</label><input type="number" id="f-kcal" min="0"></div>
+    <div class="field"><label>Protein (g)</label><input type="number" id="f-protein" min="0"></div>
+  </div>
+
+  <div class="row-actions" style="margin-top:18px;"><h2 style="margin:0;font-size:14px;">Activities</h2></div>
+  <div id="activity-list"></div>
+  <div class="row-actions">
+    <button type="button" class="ghost" id="add-activity">+ add activity</button>
+  </div>
+  <div class="note">Type what you did (e.g. "run", "gym", "cycling") and minutes — calories are estimated from activity type.</div>
+
+  <div class="row-actions"><button id="save-day">Save today's entry</button></div>
+</div>
+
+<div class="panel">
+  <h2>Weight trend</h2>
+  <div id="chart-holder"></div>
+</div>
+
+<div class="panel">
+  <h2>Advice</h2>
+  <div class="advice" id="advice-box">Log your profile and a few days of entries to get a calorie recommendation.</div>
+</div>
+
+<div class="panel">
+  <h2>Log</h2>
+  <div class="overflow">
+    <table id="log-table">
+      <thead><tr><th>Date</th><th>Wt</th><th>Kcal in</th><th>Protein</th><th>Burned</th><th>Deficit</th><th></th></tr></thead>
+      <tbody id="log-body"></tbody>
+    </table>
+  </div>
+  <div class="log-empty" id="log-empty" style="display:none;">No entries yet.</div>
+</div>
+
+<footer>Stored locally in this browser — not synced elsewhere. Calorie estimates are approximations, not medical advice.</footer>
+</div>
+
+<script>
+(function(){
+  const DKEY='cutlog_days_v1', PKEY='cutlog_profile_v1';
+  const MET=[
+    [['walk','walking','stroll'],3.8],
+    [['brisk walk'],4.3],
+    [['run','running','jog'],8.3],
+    [['sprint'],11],
+    [['cycle','cycling','bike'],7.5],
+    [['swim','swimming'],7],
+    [['gym','weight','lifting','strength'],5],
+    [['yoga','stretch'],3],
+    [['hiit','interval'],8],
+    [['badminton'],5.5],
+    [['football','soccer'],7],
+    [['basketball'],6.5],
+    [['cricket'],5],
+    [['dance','dancing','zumba'],5.5],
+    [['stairs','stair climb'],8],
+    [['elliptical'],5],
+    [['skip','rope','jump rope'],10]
+  ];
+  function metFor(name){
+    const n=(name||'').toLowerCase();
+    for(const [keys,val] of MET){ if(keys.some(k=>n.includes(k))) return val; }
+    return 4;
+  }
+  function activityKcal(name,mins,weightKg){
+    const met=metFor(name);
+    const w=weightKg||70;
+    return met*3.5*w/200*(mins||0);
+  }
+
+  function load(k,d){ try{ return JSON.parse(localStorage.getItem(k))||d; }catch(e){ return d; } }
+  function saveK(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+
+  let days = load(DKEY, []);
+  let profile = load(PKEY, {sex:'m',age:'',height:'',goal:''});
+
+  document.getElementById('today').textContent = new Date().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+  document.getElementById('f-date').valueAsDate = new Date();
+  document.getElementById('p-sex').value = profile.sex||'m';
+  document.getElementById('p-age').value = profile.age||'';
+  document.getElementById('p-height').value = profile.height||'';
+  document.getElementById('p-goal').value = profile.goal||'';
+
+  let activityRows = [];
+  function addActivityRow(name,mins){
+    const id = Date.now().toString()+Math.random().toString(36).slice(2,6);
+    activityRows.push({id,name:name||'',mins:mins||''});
+    renderActivityRows();
+  }
+  function renderActivityRows(){
+    const holder = document.getElementById('activity-list');
+    holder.innerHTML='';
+    activityRows.forEach(row=>{
+      const div=document.createElement('div');
+      div.className='activity-row';
+
+      const nameInput=document.createElement('input');
+      nameInput.placeholder='e.g. run';
+      nameInput.value=row.name;
+
+      const minsInput=document.createElement('input');
+      minsInput.type='number';
+      minsInput.placeholder='mins';
+      minsInput.value=row.mins;
+
+      const kcalSpan=document.createElement('span');
+      kcalSpan.className='activity-kcal';
+
+      const delBtn=document.createElement('button');
+      delBtn.type='button';
+      delBtn.className='del';
+      delBtn.textContent='remove';
+
+      function updateKcal(){
+        const w = latestWeightKg();
+        const kcal = activityKcal(row.name, parseFloat(row.mins)||0, w);
+        kcalSpan.textContent = row.name ? Math.round(kcal)+' kcal' : '';
+      }
+      updateKcal();
+
+      nameInput.addEventListener('input', ()=>{ row.name=nameInput.value; updateKcal(); });
+      minsInput.addEventListener('input', ()=>{ row.mins=minsInput.value; updateKcal(); });
+      delBtn.addEventListener('click', ()=>{
+        activityRows = activityRows.filter(a=>a.id!==row.id);
+        renderActivityRows();
+      });
+
+      div.appendChild(nameInput);
+      div.appendChild(minsInput);
+      div.appendChild(kcalSpan);
+      div.appendChild(delBtn);
+      holder.appendChild(div);
+    });
+  }
+  document.getElementById('add-activity').addEventListener('click', ()=>addActivityRow());
+  addActivityRow();
+
+  function sortedDays(){ return [...days].sort((a,b)=>a.date.localeCompare(b.date)); }
+  function latestWeightKg(){
+    const s = sortedDays().filter(d=>d.weight);
+    return s.length ? s[s.length-1].weight : null;
+  }
+  function bmr(weightKg){
+    const age=parseFloat(profile.age), h=parseFloat(profile.height);
+    if(!weightKg || !age || !h) return null;
+    const base = 10*weightKg + 6.25*h - 5*age;
+    return profile.sex==='f' ? base-161 : base+5;
+  }
+
+  document.getElementById('save-profile').addEventListener('click', ()=>{
+    profile = {
+      sex: document.getElementById('p-sex').value,
+      age: document.getElementById('p-age').value,
+      height: document.getElementById('p-height').value,
+      goal: document.getElementById('p-goal').value
+    };
+    saveK(PKEY, profile);
+    render();
+  });
+
+  document.getElementById('save-day').addEventListener('click', ()=>{
+    const date = document.getElementById('f-date').value;
+    if(!date) return;
+    const weight = parseFloat(document.getElementById('f-weight').value)||null;
+    const kcal = parseFloat(document.getElementById('f-kcal').value)||null;
+    const protein = parseFloat(document.getElementById('f-protein').value)||null;
+    const w = weight || latestWeightKg();
+    const activities = activityRows.filter(a=>a.name && a.mins).map(a=>({name:a.name,mins:parseFloat(a.mins)||0}));
+    const burned = activities.reduce((sum,a)=>sum+activityKcal(a.name,a.mins,w),0);
+
+    const existingIdx = days.findIndex(d=>d.date===date);
+    const entry = {date, weight, kcal, protein, activities, burned};
+    if(existingIdx>=0) days[existingIdx]=entry; else days.push(entry);
+    saveK(DKEY, days);
+
+    document.getElementById('f-kcal').value='';
+    document.getElementById('f-protein').value='';
+    activityRows=[]; addActivityRow();
+    render();
+  });
+
+  function render(){
+    const s = sortedDays();
+    const w = latestWeightKg();
+    const goal = parseFloat(profile.goal);
+
+    document.getElementById('s-weight').textContent = w ? w.toFixed(1)+' kg' : '—';
+
+    const progEl = document.getElementById('s-progress');
+    if(w && goal && s.filter(d=>d.weight).length){
+      const startW = s.find(d=>d.weight).weight;
+      let pct;
+      if(startW===goal) pct=100;
+      else pct = ((startW-w)/(startW-goal))*100;
+      pct = Math.max(0, Math.min(100, pct));
+      progEl.textContent = pct.toFixed(0)+'%';
+    } else { progEl.textContent = goal ? '0%' : 'set goal'; }
+
+    const withDeficit = s.map(d=>{
+      const b = bmr(d.weight||w);
+      if(!b || d.kcal==null) return null;
+      const maintenance = b*1.2 + (d.burned||0);
+      return maintenance - d.kcal;
+    }).filter(v=>v!==null);
+    const deficitEl = document.getElementById('s-deficit');
+    if(withDeficit.length){
+      const avg = withDeficit.reduce((a,b)=>a+b,0)/withDeficit.length;
+      deficitEl.textContent = Math.round(avg)+' kcal/day'+(avg>750?' ⚠':'');
+      deficitEl.style.color = avg>750 ? 'var(--up)' : (avg>0 ? 'var(--down)' : 'var(--up)');
+    } else deficitEl.textContent='—';
+
+    const proteinVals = s.filter(d=>d.protein!=null).map(d=>d.protein);
+    document.getElementById('s-protein').textContent = proteinVals.length ? Math.round(proteinVals.reduce((a,b)=>a+b,0)/proteinVals.length)+' g' : '—';
+
+    renderAdvice(w, goal, withDeficit);
+    renderChart(s, goal);
+    renderTable(s);
+  }
+
+  function renderAdvice(w, goal, deficits){
+    const box = document.getElementById('advice-box');
+    const b = bmr(w);
+    if(!b){
+      box.innerHTML = 'Fill in your profile (sex, age, height) and log a weight to get a calorie target.';
+      return;
+    }
+    const maintenance = Math.round(b*1.2);
+    const floor = profile.sex==='f' ? 1200 : 1500;
+    let target = maintenance - 500;
+    let note='';
+    if(target < floor){ target = floor; note = ' This is capped at a safe minimum — don\'t go lower without medical guidance.'; }
+    const proteinTarget = w ? Math.round(w*1.8) : null;
+
+    let progressNote='';
+    if(deficits.length){
+      const avg = deficits.reduce((a,c)=>a+c,0)/deficits.length;
+      const weeklyLoss = (avg*7/7700).toFixed(2);
+      progressNote = ' Your logged average is about <b>'+Math.round(avg)+' kcal/day</b>, roughly '+weeklyLoss+' kg/week at that rate.';
+      if(avg > 750){
+        progressNote += '<br><br>⚠ That\'s a bigger deficit than the suggested target above, and above the generally recommended range of 500–750 kcal/day. Sustained deficits beyond that raise the risk of muscle loss, fatigue, nutrient shortfalls, and metabolic slowdown — and are hard to stick to long-term. Aim to eat closer to your suggested target rather than push the deficit further.';
+      }
+    }
+
+    box.innerHTML =
+      'Estimated maintenance (BMR × 1.2, before activity): <b>'+maintenance+' kcal</b>.<br>'+
+      'Suggested target for steady fat loss: <b>'+target+' kcal/day</b>, before adding back what you burn through logged activity.'+note+
+      progressNote+
+      (proteinTarget ? '<br>Protein target: roughly <b>'+proteinTarget+' g/day</b> (~1.8g per kg bodyweight).' : '');
+  }
+
+  function renderChart(s, goal){
+    const holder = document.getElementById('chart-holder');
+    const wpts = s.filter(d=>d.weight);
+    if(wpts.length<2){ holder.innerHTML='<div id="chart-empty">Log weight on at least two days to see a trend.</div>'; return; }
+    const W=860,H=220,pad=30;
+    const weights=wpts.map(d=>d.weight);
+    let min=Math.min(...weights), max=Math.max(...weights);
+    if(goal){ min=Math.min(min,goal); max=Math.max(max,goal); }
+    const range=(max-min)||1;
+    const yFor=v=>H-pad-((v-min)/range)*(H-pad*2);
+    const xFor=i=>pad+(i/(wpts.length-1))*(W-pad*2);
+    let path='',pts='';
+    wpts.forEach((d,i)=>{
+      const x=xFor(i), y=yFor(d.weight);
+      path += (i===0?'M':'L')+x.toFixed(1)+','+y.toFixed(1)+' ';
+      pts += '<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="3.2" fill="var(--accent)" />';
+    });
+    let goalLine='';
+    if(goal){
+      const gy=yFor(goal);
+      goalLine='<line x1="'+pad+'" y1="'+gy.toFixed(1)+'" x2="'+(W-pad)+'" y2="'+gy.toFixed(1)+'" stroke="var(--accent-dim)" stroke-width="1" stroke-dasharray="4 4" />';
+    }
+    holder.innerHTML =
+      '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block;" preserveAspectRatio="none">'+
+      '<line x1="'+pad+'" y1="'+(H-pad)+'" x2="'+(W-pad)+'" y2="'+(H-pad)+'" stroke="var(--line-strong)" stroke-width="1" />'+
+      goalLine+'<path d="'+path.trim()+'" fill="none" stroke="var(--accent)" stroke-width="2" />'+pts+
+      '</svg>';
+  }
+
+  function renderTable(s){
+    const body=document.getElementById('log-body');
+    const empty=document.getElementById('log-empty');
+    body.innerHTML='';
+    if(!s.length){ empty.style.display='block'; return; }
+    empty.style.display='none';
+    [...s].reverse().forEach(d=>{
+      const b = bmr(d.weight||latestWeightKg());
+      const maint = b ? b*1.2+(d.burned||0) : null;
+      const deficit = (maint!=null && d.kcal!=null) ? maint-d.kcal : null;
+      const tr=document.createElement('tr');
+      tr.innerHTML =
+        '<td>'+new Date(d.date+'T00:00:00').toLocaleDateString('en-IN',{day:'2-digit',month:'short'})+'</td>'+
+        '<td>'+(d.weight?d.weight.toFixed(1):'—')+'</td>'+
+        '<td>'+(d.kcal!=null?d.kcal:'—')+'</td>'+
+        '<td>'+(d.protein!=null?d.protein:'—')+'</td>'+
+        '<td>'+(d.burned?Math.round(d.burned):'—')+'</td>'+
+        '<td class="delta '+(deficit==null?'':deficit>=0?'down':'up')+'">'+(deficit==null?'—':Math.round(deficit))+'</td>'+
+        '<td><button class="del" data-date="'+d.date+'">delete</button></td>';
+      body.appendChild(tr);
+    });
+    body.querySelectorAll('.del').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        days = days.filter(d=>d.date!==btn.dataset.date);
+        saveK(DKEY, days);
+        render();
+      });
+    });
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
